@@ -1,28 +1,39 @@
 const admin = require('firebase-admin');
 
 // Inicializar Firebase Admin SDK
-try {
-  // Prioridad: variable de entorno con el JSON completo
-  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-    console.log('Firebase inicializado con variable de entorno');
-  } 
-  // Fallback para desarrollo local con archivo (no usado en producción)
-  else {
-    // Intenta cargar el archivo local (solo para desarrollo)
-    const serviceAccount = require('../../firebase-service-account.json');
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-    console.log('Firebase inicializado con archivo local (desarrollo)');
+(async () => {
+  try {
+    // Verificar si la variable de entorno existe
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      console.log('✅ Variable FIREBASE_SERVICE_ACCOUNT encontrada. Longitud:', process.env.FIREBASE_SERVICE_ACCOUNT.length);
+      
+      // Intentar parsear el JSON
+      try {
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount)
+        });
+        console.log('✅ Firebase inicializado correctamente con variable de entorno');
+      } catch (parseError) {
+        console.error('❌ Error al parsear FIREBASE_SERVICE_ACCOUNT:', parseError.message);
+        console.log('🔍 Primeros 100 caracteres:', process.env.FIREBASE_SERVICE_ACCOUNT.substring(0, 100));
+        // No inicializar, pero no detener la app
+      }
+    } else {
+      console.log('⚠️ Variable FIREBASE_SERVICE_ACCOUNT no definida. Intentando con archivo local...');
+      try {
+        const serviceAccount = require('../../firebase-service-account.json');
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount)
+        });
+        console.log('✅ Firebase inicializado con archivo local (desarrollo)');
+      } catch (fileError) {
+        console.error('❌ No se pudo cargar archivo local:', fileError.message);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error inesperado en inicialización de Firebase:', error.message);
   }
-} catch (error) {
-  console.error('Error al inicializar Firebase:', error.message);
-  // En producción, si falla Firebase, podrías optar por no usar notificaciones
-  // pero la aplicación debe seguir funcionando.
-}
+})();
 
 module.exports = admin;
