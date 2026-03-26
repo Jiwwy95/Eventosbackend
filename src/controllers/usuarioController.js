@@ -1,4 +1,9 @@
 const Usuario = require('../models/Usuario');
+const Evento = require('../models/Evento');
+const Ticket = require('../models/Ticket');
+const Review = require('../models/Review');
+const Comentario = require('../models/Comentario');
+const Amistad = require('../models/Amistad');
 
 // Listar todos los usuarios (solo admin)
 exports.listarUsuarios = async (req, res) => {
@@ -70,20 +75,59 @@ exports.actualizarUsuario = async (req, res) => {
   }
 };
 
-// Eliminar usuario (solo admin)
+// Eliminar usuario (solo admin) con eliminación en cascada de todos los datos relacionados
 exports.eliminarUsuario = async (req, res) => {
   try {
     if (req.user.rol !== 'administrador') {
       return res.status(403).json({ mensaje: 'Solo administradores pueden eliminar usuarios' });
     }
 
-    const usuario = await Usuario.findByIdAndDelete(req.params.id);
+    const usuarioId = req.params.id;
+    const usuario = await Usuario.findById(usuarioId);
     if (!usuario) {
       return res.status(404).json({ mensaje: 'Usuario no encontrado' });
     }
 
-    res.json({ mensaje: 'Usuario eliminado correctamente' });
+    // 1. Eliminar todas las reseñas escritas por el usuario
+    await Review.deleteMany({ usuario: usuarioId });
+
+    // 2. Eliminar todos los comentarios escritos por el usuario
+    await Comentario.deleteMany({ usuario: usuarioId });
+
+    // 3. Eliminar todos los tickets del usuario
+    await Ticket.deleteMany({ usuario: usuarioId });
+
+    // 4. Eliminar todas las solicitudes de amistad donde el usuario es parte (como usuario o como amigo)
+    await Amistad.deleteMany({ $or: [{ usuario: usuarioId }, { amigo: usuarioId }] });
+
+    // 5. Si el usuario era organizador, eliminar todos sus eventos (y en cascada sus tickets, reseñas, etc.)
+    const eventosDelUsuario = await Evento.find({ organizador: usuarioId });
+    for (const evento of eventosDelUsuario) {
+      // Eliminar tickets asociados al evento
+      await Ticket.deleteMany({ evento: evento._id });
+      // Eliminar reseñas asociadas al evento
+      await Review.deleteMany({ evento: evento._id });
+      // Eliminar comentarios asociados al evento
+      await Comentario.deleteMany({ evento: evento._id });
+      // Eliminar el evento de la lista de favoritos de todos los usuarios
+      await Usuario.updateMany(
+        { eventosFavoritos: evento._id },
+        { $pull: { eventosFavoritos: evento._id } }
+      );
+      // Eliminar el evento
+      await evento.deleteOne();
+    }
+
+    // 6. Eliminar el usuario de las listas de asistentes (si el modelo Evento tuviera campo asistentes)
+    //    Opcional: si usas asistentes en Evento, descomenta:
+    // await Evento.updateMany({ asistentes: usuarioId }, { $pull: { asistentes: usuarioId } });
+
+    // 7. Finalmente, eliminar el usuario
+    await usuario.deleteOne();
+
+    res.json({ mensaje: 'Usuario y todos sus datos relacionados eliminados correctamente' });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ mensaje: 'Error al eliminar usuario' });
   }
 };

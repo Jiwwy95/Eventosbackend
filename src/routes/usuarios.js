@@ -17,6 +17,7 @@ router.get('/:id', isAdmin, usuarioController.obtenerUsuarioPorId);
 router.put('/:id', isAdmin, usuarioController.actualizarUsuario);
 router.delete('/:id', isAdmin, usuarioController.eliminarUsuario);
 router.patch('/:id/rol', isAdmin, usuarioController.cambiarRol);
+router.delete('/:id', authenticate, isAdmin, usuarioController.eliminarUsuario);
 
 // Mixto (propietario o admin)
 router.get('/:id/propio', isOwnerOrAdmin('Usuario'), usuarioController.obtenerUsuarioPorId);

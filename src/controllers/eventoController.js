@@ -1,6 +1,8 @@
 const Evento = require('../models/Evento');
-const Usuario = require('../models/Usuario'); // Faltaba importar Usuario
-// const Ticket = require('../models/Ticket'); // Si no existe, comenta donde se usa
+const Ticket = require('../models/Ticket');
+const Review = require('../models/Review');
+const Comentario = require('../models/Comentario');
+const Usuario = require('../models/Usuario');
 const { createEvents } = require('ics');
 
 // Obtener todos los eventos (público)
@@ -62,8 +64,23 @@ exports.eliminarEvento = async (req, res) => {
     if (evento.organizador.toString() !== req.user._id.toString() && req.user.rol !== 'administrador') {
       return res.status(403).json({ mensaje: 'No autorizado para eliminar este evento' });
     }
-    await Evento.findByIdAndDelete(req.params.id); // usar findByIdAndDelete en lugar de remove()
-    res.json({ mensaje: 'Evento eliminado' });
+     // 1. Eliminar todos los tickets asociados
+    await Ticket.deleteMany({ evento: evento._id });
+
+    // 2. Eliminar todas las reseñas asociadas
+    await Review.deleteMany({ evento: evento._id });
+
+    // 3. Eliminar todos los comentarios asociados
+    await Comentario.deleteMany({ evento: evento._id });
+
+    // 4. Eliminar el evento de la lista de favoritos de todos los usuarios
+    await Usuario.updateMany(
+      { eventosFavoritos: evento._id },
+      { $pull: { eventosFavoritos: evento._id } }
+    );
+    await Evento.findByIdAndDelete(req.params.id);
+     res.json({ mensaje: 'Evento y todos sus datos relacionados eliminados correctamente' });
+
   } catch (error) {
     res.status(500).json({ mensaje: 'Error al eliminar evento' });
   }
