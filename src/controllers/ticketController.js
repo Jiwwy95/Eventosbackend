@@ -107,3 +107,30 @@ exports.verificarTicket = async (req, res) => {
     res.status(500).json({ mensaje: 'Error al verificar ticket' });
   }
 };
+
+exports.validarTicket = async (req, res) => {
+  try {
+    const ticketId = req.params.id;
+    const usuario = req.user;
+
+    const ticket = await Ticket.findById(ticketId).populate('evento');
+    if (!ticket) return res.status(404).json({ mensaje: 'Ticket no encontrado' });
+
+    // Verificar permisos: solo organizador del evento o admin
+    if (ticket.evento.organizador.toString() !== usuario.id && usuario.rol !== 'administrador') {
+      return res.status(403).json({ mensaje: 'No autorizado para validar este ticket' });
+    }
+
+    if (ticket.estado === 'usado') {
+      return res.status(400).json({ mensaje: 'Este ticket ya fue utilizado' });
+    }
+
+    ticket.estado = 'usado';
+    await ticket.save();
+
+    res.json({ mensaje: 'Ticket validado correctamente', ticket });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ mensaje: 'Error al validar ticket' });
+  }
+};
