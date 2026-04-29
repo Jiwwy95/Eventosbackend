@@ -3,14 +3,15 @@ const router = express.Router();
 const usuarioController = require('../controllers/usuarioController');
 const { authenticate, isAdmin, isOwnerOrAdmin } = require('../middlewares/authMiddleware');
 const { uploadPerfiles } = require('../middlewares/upload');
+const upload = require('../middlewares/uploadMemory');
 
 // Todas las rutas requieren autenticación
 router.use(authenticate);
 
 // Perfil propio (con subida de imagen)
 router.get('/perfil', usuarioController.obtenerPerfil);
-router.put('/perfil', uploadPerfiles.single('fotoPerfil'), usuarioController.actualizarPerfil);
-router.delete('/perfil/imagen', usuarioController.eliminarImagenPerfil);
+router.put('/perfil', authenticate, upload.single('fotoPerfil'), usuarioController.actualizarPerfil);
+router.delete('/perfil/imagen', authenticate, usuarioController.eliminarImagenPerfil);
 router.get('/buscar', usuarioController.buscarUsuarios);
 
 // Admin

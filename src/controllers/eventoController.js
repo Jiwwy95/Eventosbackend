@@ -7,6 +7,7 @@ const { createEvents } = require('ics');
 const Categoria = require('../models/Categoria');
 const fs = require('fs');
 const path = require('path');
+const cloudinaryService = require('../services/cloudinaryService');
 
 // Obtener todos los eventos (público)
 exports.obtenerEventos = async (req, res) => {
@@ -40,9 +41,10 @@ exports.crearEvento = async (req, res) => {
         eventoData.ubicacion = ubicacion;
       }
     }
-    // Si se subió una imagen, guardar la URL (ruta relativa)
+    // Si se subió una imagen, subirla a Cloudinary y guardar la URL
     if (req.file) {
-      eventoData.imagen = `/uploads/eventos/${req.file.filename}`;
+      const result = await cloudinaryService.uploadFromBuffer(req.file.buffer, 'eventos');
+      eventoData.imagen = result.secure_url;
     }
 
     if (req.user.rol === 'entidad') {
@@ -131,7 +133,8 @@ exports.actualizarEvento = async (req, res) => {
 
     // Imagen
     if (req.file) {
-      actualizaciones.imagen = `/uploads/eventos/${req.file.filename}`;
+      const result = await cloudinaryService.uploadFromBuffer(req.file.buffer, 'eventos');
+      actualizaciones.imagen = result.secure_url;
     }
 
     const eventoActualizado = await Evento.findByIdAndUpdate(

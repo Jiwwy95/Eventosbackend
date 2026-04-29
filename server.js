@@ -42,9 +42,6 @@ app.use('/api/google', require('./src/routes/googleCalendar'));
 const categoriasRoutes = require('./src/routes/categorias');
 app.use('/api/categorias', categoriasRoutes);
 
-// Servir archivos estáticos (imágenes subidas)
-app.use('/uploads', express.static('uploads'));
-
 // Iniciar servidor
 app.listen(port, '0.0.0.0', () => {
   console.log(`Servidor corriendo en http://localhost:${port}`);

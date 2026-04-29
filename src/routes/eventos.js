@@ -14,8 +14,8 @@ router.get('/oficiales', eventoController.eventosOficiales);
 // Rutas protegidas con palabra fija (antes de /:id)
 router.get('/mis-eventos', authenticate, isOrganizador, eventoController.misEventos);
 router.get('/recomendaciones', authenticate, eventoController.recomendaciones);
-router.post('/', authenticate, isOrganizador, uploadEventos.single('imagen'), eventoController.crearEvento);
-router.put('/:id', authenticate, uploadEventos.single('imagen'), eventoController.actualizarEvento);
+router.post('/', authenticate, isOrganizador, upload.single('imagen'), eventoController.crearEvento);
+router.put('/:id', authenticate, upload.single('imagen'), eventoController.actualizarEvento);
 router.delete('/:id/imagen', authenticate, eventoController.eliminarImagenEvento);
 
 // Rutas con parámetro dinámico (al final)

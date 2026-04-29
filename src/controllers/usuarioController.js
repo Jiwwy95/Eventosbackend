@@ -4,6 +4,7 @@ const Ticket = require('../models/Ticket');
 const Review = require('../models/Review');
 const Comentario = require('../models/Comentario');
 const Amistad = require('../models/Amistad');
+const cloudinaryService = require('../services/cloudinaryService');
 
 // Listar todos los usuarios (solo admin)
 exports.listarUsuarios = async (req, res) => {
@@ -180,20 +181,13 @@ exports.actualizarPerfil = async (req, res) => {
     }
 
     if (req.file) {
-      const usuarioActual = await Usuario.findById(req.user.id);
-      if (usuarioActual.fotoPerfil) {
-        const oldPath = path.join(__dirname, '../..', usuarioActual.fotoPerfil);
-        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-      }
-      actualizaciones.fotoPerfil = `/uploads/perfiles/${req.file.filename}`;
+      const result = await cloudinaryService.uploadFromBuffer(req.file.buffer, 'perfiles');
+      actualizaciones.fotoPerfil = result.secure_url;
     } else if (req.body.fotoPerfil === '') {
-      const usuarioActual = await Usuario.findById(req.user.id);
-      if (usuarioActual.fotoPerfil) {
-        const oldPath = path.join(__dirname, '../..', usuarioActual.fotoPerfil);
-        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-      }
+      // Eliminar imagen anterior de Cloudinary (opcional)
+      // Por simplicidad solo ponemos null
       actualizaciones.fotoPerfil = null;
-    }
+   }
 
     const usuario = await Usuario.findByIdAndUpdate(req.user.id, actualizaciones, { new: true }).select('-password');
     res.json(usuario);
