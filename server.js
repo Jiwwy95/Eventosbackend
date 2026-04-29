@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const cors = require('cors');
 require('dotenv').config();
 
@@ -10,7 +11,12 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+  origin: FRONTEND_URL,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json()); // para parsear JSON
 
 app.use(passport.initialize());
