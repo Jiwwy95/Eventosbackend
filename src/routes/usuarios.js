@@ -2,16 +2,15 @@ const express = require('express');
 const router = express.Router();
 const usuarioController = require('../controllers/usuarioController');
 const { authenticate, isAdmin, isOwnerOrAdmin } = require('../middlewares/authMiddleware');
-const { uploadPerfiles } = require('../middlewares/upload');
-const upload = require('../middlewares/uploadMemory');
+const upload = require('../middlewares/uploadMemory'); 
 
-// Todas las rutas requieren autenticación
+// Todas las rutas requieren autenticación (excepto algunas que se indique)
 router.use(authenticate);
 
-// Perfil propio (con subida de imagen)
+// Perfil propio
 router.get('/perfil', usuarioController.obtenerPerfil);
-router.put('/perfil', authenticate, upload.single('fotoPerfil'), usuarioController.actualizarPerfil);
-router.delete('/perfil/imagen', authenticate, usuarioController.eliminarImagenPerfil);
+router.put('/perfil', upload.single('fotoPerfil'), usuarioController.actualizarPerfil);
+router.delete('/perfil/imagen', usuarioController.eliminarImagenPerfil);
 router.get('/buscar', usuarioController.buscarUsuarios);
 
 // Admin
@@ -25,7 +24,7 @@ router.patch('/:id/rol', isAdmin, usuarioController.cambiarRol);
 router.get('/:id/propio', isOwnerOrAdmin('Usuario'), usuarioController.obtenerUsuarioPorId);
 router.put('/:id/propio', isOwnerOrAdmin('Usuario'), usuarioController.actualizarUsuario);
 
-// Obtener perfil público de cualquier usuario (sin autenticación adicional, pero ya tenemos authenticate global)
+// Perfil público
 router.get('/publico/:id', usuarioController.obtenerPerfilPublico);
 
 module.exports = router;
