@@ -7,7 +7,8 @@ exports.authUrl = async (req, res) => {
     access_type: 'offline',
     scope: ['https://www.googleapis.com/auth/calendar.events'],
     prompt: 'consent',
-    state: state
+    state: state,
+    redirect_uri: process.env.GOOGLE_REDIRECT_URI
   });
   res.json({ url });
 };
