@@ -28,16 +28,17 @@ module.exports = (passport) => {
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.GOOGLE_CALLBACK_URL,
-  }, async (accessToken, refreshToken, profile, done) => {
+    callbackURL: process.env.GOOGLE_REDIRECT_URI   // ← Usa la variable correcta
+  },
+  async (accessToken, refreshToken, profile, done) => {
     try {
       let usuario = await Usuario.findOne({ email: profile.emails[0].value });
       if (!usuario) {
         usuario = new Usuario({
           nombre: profile.displayName,
           email: profile.emails[0].value,
-          password: crypto.randomBytes(20).toString('hex'), // contraseña aleatoria (no se usará)
-          emailVerified: true, // Verificado por defecto
+          password: crypto.randomBytes(20).toString('hex'),
+          emailVerified: true,
           rol: 'usuario'
         });
         await usuario.save();
@@ -46,5 +47,6 @@ module.exports = (passport) => {
     } catch (err) {
       return done(err, null);
     }
-  }));
+  }
+));
 };
