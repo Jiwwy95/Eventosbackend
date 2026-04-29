@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const eventoController = require('../controllers/eventoController');
 const { authenticate, isOrganizador, isAdmin } = require('../middlewares/authMiddleware');
-const upload = require('../middlewares/upload'); 
+const upload = require('../middlewares/uploadMemory');
 const { uploadEventos } = require('../middlewares/upload');
 
 // Rutas públicas
