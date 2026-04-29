@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:5173'];
 const cors = require('cors');
 require('dotenv').config();
 
@@ -10,7 +11,20 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Middlewares
-app.use(cors());
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 app.use(express.json()); // para parsear JSON
 
 app.use(passport.initialize());
