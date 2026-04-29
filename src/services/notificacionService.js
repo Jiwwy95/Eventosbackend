@@ -35,3 +35,18 @@ exports.enviarEmail = async (usuario, asunto, mensajeHtml) => {
     return false;
   }
 };
+
+// Enviar correo de verificación de cuenta
+exports.enviarCorreoVerificacion = async (usuario, token) => {
+  const url = `${process.env.FRONTEND_URL}/verificar-email?token=${token}`;
+  const asunto = 'Verifica tu cuenta - Urbantek';
+  const mensajeHtml = `
+    <h1>Bienvenido a Urbantek</h1>
+    <p>Hola ${usuario.nombre},</p>
+    <p>Por favor verifica tu correo haciendo clic en el siguiente enlace:</p>
+    <a href="${url}">${url}</a>
+    <p>El enlace expirará en 24 horas.</p>
+    <p>Si no solicitaste esta verificación, ignora este mensaje.</p>
+  `;
+  return exports.enviarEmail(usuario, asunto, mensajeHtml);
+};

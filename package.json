@@ -23,8 +23,10 @@
     "ics": "^3.8.1",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.2.4",
-    "nodemailer": "^8.0.1",
+    "multer": "^2.1.1",
+    "nodemailer": "^8.0.7",
     "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
     "pdfkit": "^0.18.0",
     "qrcode": "^1.5.4"

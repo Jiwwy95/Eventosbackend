@@ -5,6 +5,8 @@ const usuarioSchema = new mongoose.Schema({
   nombre: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  emailVerified: { type: Boolean, default: false },
+verificationToken: { type: String }, // token único para verificar email
   rol: { 
     type: String, 
     enum: ['usuario', 'organizador', 'administrador', 'entidad'], 

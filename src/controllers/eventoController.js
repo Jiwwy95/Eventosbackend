@@ -4,6 +4,9 @@ const Review = require('../models/Review');
 const Comentario = require('../models/Comentario');
 const Usuario = require('../models/Usuario');
 const { createEvents } = require('ics');
+const Categoria = require('../models/Categoria');
+const fs = require('fs');
+const path = require('path');
 
 // Obtener todos los eventos (público)
 exports.obtenerEventos = async (req, res) => {
@@ -19,13 +22,53 @@ exports.obtenerEventos = async (req, res) => {
 exports.crearEvento = async (req, res) => {
   try {
     const eventoData = { ...req.body, organizador: req.user._id };
+
+    // Transformar ubicación si existe
+    if (req.body.ubicacion) {
+      let ubicacion;
+      if (typeof req.body.ubicacion === 'string') {
+        ubicacion = JSON.parse(req.body.ubicacion);
+      } else {
+        ubicacion = req.body.ubicacion;
+      }
+      if (ubicacion.lat !== undefined && ubicacion.lng !== undefined) {
+        eventoData.ubicacion = {
+          type: 'Point',
+          coordinates: [ubicacion.lng, ubicacion.lat]
+        };
+      } else {
+        eventoData.ubicacion = ubicacion;
+      }
+    }
+    // Si se subió una imagen, guardar la URL (ruta relativa)
+    if (req.file) {
+      eventoData.imagen = `/uploads/eventos/${req.file.filename}`;
+    }
+
     if (req.user.rol === 'entidad') {
       eventoData.esOficial = true;
     }
+    // Crear y guardar evento
     const nuevoEvento = new Evento(eventoData);
     await nuevoEvento.save();
+
+    // Manejar categoría (si quieres crear automáticamente)
+    const categoriaNombre = req.body.categoria;
+    if (categoriaNombre) {
+      let categoriaExistente = await Categoria.findOne({ nombre: categoriaNombre });
+      if (!categoriaExistente) {
+        // Crear la categoría automáticamente (activa) asociada al organizador
+        await Categoria.create({ nombre: categoriaNombre, creadoPor: req.user.id });
+      } else if (!categoriaExistente.activo) {
+        // Reactivar si estaba inactiva
+        categoriaExistente.activo = true;
+        await categoriaExistente.save();
+      }
+    }
+    
     res.status(201).json(nuevoEvento);
   } catch (error) {
+    console.error(error);
     res.status(400).json({ mensaje: 'Error al crear evento', error });
   }
 };
@@ -45,13 +88,61 @@ exports.obtenerEventoPorId = async (req, res) => {
 exports.actualizarEvento = async (req, res) => {
   try {
     const evento = await Evento.findById(req.params.id);
-    if (!evento) return res.status(404).json({ mensaje: 'Evento no encontrado' });
+    if (!evento) {
+      return res.status(404).json({ mensaje: 'Evento no encontrado' });
+    }
+
+    // Verificar permisos
     if (evento.organizador.toString() !== req.user._id.toString() && req.user.rol !== 'administrador') {
       return res.status(403).json({ mensaje: 'No autorizado para editar este evento' });
     }
-    const eventoActualizado = await Evento.findByIdAndUpdate(req.params.id, req.body, { new: true });
+
+    // Construir objeto con los campos que vienen en el body (texto) o en req.body (por multer)
+    const actualizaciones = {};  
+
+    // Campos de texto
+    if (req.body.nombre !== undefined) actualizaciones.nombre = req.body.nombre;
+    if (req.body.descripcion !== undefined) actualizaciones.descripcion = req.body.descripcion;
+    if (req.body.fecha !== undefined) actualizaciones.fecha = req.body.fecha;
+    if (req.body.direccion !== undefined) actualizaciones.direccion = req.body.direccion;
+    if (req.body.categoria !== undefined) actualizaciones.categoria = req.body.categoria;
+    if (req.body.precio !== undefined) actualizaciones.precio = Number(req.body.precio);
+    if (req.body.moneda !== undefined) actualizaciones.moneda = req.body.moneda;
+    if (req.body.aforo !== undefined) actualizaciones.aforo = req.body.aforo ? Number(req.body.aforo) : undefined;
+
+    // Ubicación: viene como string JSON con { lat, lng }
+    if (req.body.ubicacion) {
+      let ubicacion;
+      if (typeof req.body.ubicacion === 'string') {
+        ubicacion = JSON.parse(req.body.ubicacion);
+      } else {
+        ubicacion = req.body.ubicacion;
+      }
+      // Convertir de { lat, lng } a { type: 'Point', coordinates: [lng, lat] }
+      if (ubicacion.lat !== undefined && ubicacion.lng !== undefined) {
+        actualizaciones.ubicacion = {
+          type: 'Point',
+          coordinates: [ubicacion.lng, ubicacion.lat]
+        };
+      } else {
+        actualizaciones.ubicacion = ubicacion;
+      }
+    }
+
+    // Imagen
+    if (req.file) {
+      actualizaciones.imagen = `/uploads/eventos/${req.file.filename}`;
+    }
+
+    const eventoActualizado = await Evento.findByIdAndUpdate(
+      req.params.id,
+      actualizaciones,
+      { new: true, runValidators: true }
+    );
+
     res.json(eventoActualizado);
   } catch (error) {
+    console.error(error);
     res.status(400).json({ mensaje: 'Error al actualizar evento' });
   }
 };
@@ -64,16 +155,22 @@ exports.eliminarEvento = async (req, res) => {
     if (evento.organizador.toString() !== req.user._id.toString() && req.user.rol !== 'administrador') {
       return res.status(403).json({ mensaje: 'No autorizado para eliminar este evento' });
     }
-     // 1. Eliminar todos los tickets asociados
+     // Eliminar todos los tickets asociados
     await Ticket.deleteMany({ evento: evento._id });
 
-    // 2. Eliminar todas las reseñas asociadas
+    // Eliminar todas las reseñas asociadas
     await Review.deleteMany({ evento: evento._id });
 
-    // 3. Eliminar todos los comentarios asociados
+    // Eliminar todos los comentarios asociados
     await Comentario.deleteMany({ evento: evento._id });
 
-    // 4. Eliminar el evento de la lista de favoritos de todos los usuarios
+    // Si el evento tiene imagen, borrarla del disco
+    if (evento.imagen) {
+      const imagePath = path.join(__dirname, '../..', evento.imagen);
+      if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+    }
+
+    // Eliminar el evento de la lista de favoritos de todos los usuarios
     await Usuario.updateMany(
       { eventosFavoritos: evento._id },
       { $pull: { eventosFavoritos: evento._id } }
@@ -83,6 +180,30 @@ exports.eliminarEvento = async (req, res) => {
 
   } catch (error) {
     res.status(500).json({ mensaje: 'Error al eliminar evento' });
+  }
+};
+
+exports.eliminarImagenEvento = async (req, res) => {
+  try {
+    const evento = await Evento.findById(req.params.id);
+    if (!evento) return res.status(404).json({ mensaje: 'Evento no encontrado' });
+    
+    if (evento.organizador.toString() !== req.user.id && req.user.rol !== 'administrador') {
+      return res.status(403).json({ mensaje: 'No autorizado' });
+    }
+    
+    if (evento.imagen) {
+      const imagePath = path.join(__dirname, '../..', evento.imagen);
+      if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+      evento.imagen = null;
+      await evento.save();
+      res.json({ mensaje: 'Imagen eliminada correctamente' });
+    } else {
+      res.status(404).json({ mensaje: 'El evento no tiene imagen' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ mensaje: 'Error al eliminar imagen' });
   }
 };
 

@@ -1,6 +1,8 @@
 const Usuario = require('../models/Usuario');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
+const notificacionService = require('../services/notificacionService');
+const crypto = require('crypto');
 
 // Generar token JWT
 const generarToken = (usuario) => {
@@ -40,6 +42,16 @@ exports.registro = async (req, res) => {
       token,
       usuario: { id: usuario._id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol }
     });
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    usuario.verificationToken = verificationToken;
+    await usuario.save();
+    // Enviar correo de verificación (en segundo plano, sin esperar)
+    notificacionService.enviarCorreoVerificacion(usuario, verificationToken).catch(console.error);
+
+    // Respuesta
+    res.status(201).json({ mensaje: 'Usuario registrado. Revisa tu correo para verificar la cuenta.' });
+  
   } catch (error) {
     console.error(error);
     res.status(500).json({ mensaje: 'Error en el servidor' });
@@ -66,6 +78,10 @@ exports.login = async (req, res) => {
       return res.status(400).json({ mensaje: 'Credenciales inválidas' });
     }
 
+    if (!usuario.emailVerified) {
+      return res.status(403).json({ mensaje: 'Debes verificar tu correo antes de iniciar sesión' });
+    }
+
     const token = generarToken(usuario);
 
     res.json({
@@ -77,4 +93,15 @@ exports.login = async (req, res) => {
     console.error(error);
     res.status(500).json({ mensaje: 'Error en el servidor' });
   }
+};
+
+exports.verificarEmail = async (req, res) => {
+  const { token } = req.params;
+  const usuario = await Usuario.findOne({ verificationToken: token });
+  if (!usuario) return res.status(400).json({ mensaje: 'Token inválido o expirado' });
+  usuario.emailVerified = true;
+  usuario.verificationToken = undefined;
+  await usuario.save();
+  const jwtToken = generarToken(usuario);
+  res.json({ mensaje: 'Email verificado correctamente', token: jwtToken, usuario: { id: usuario._id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol } });
 };

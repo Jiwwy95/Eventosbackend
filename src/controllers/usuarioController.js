@@ -173,15 +173,32 @@ exports.obtenerPerfil = async (req, res) => {
 // Actualizar perfil del usuario autenticado
 exports.actualizarPerfil = async (req, res) => {
   try {
-    const camposPermitidos = ['nombre', 'telefono', 'fotoPerfil', 'preferencias'];
+    const camposPermitidos = ['nombre', 'telefono', 'preferencias'];
     const actualizaciones = {};
     for (let key of camposPermitidos) {
       if (req.body[key] !== undefined) actualizaciones[key] = req.body[key];
     }
 
+    if (req.file) {
+      const usuarioActual = await Usuario.findById(req.user.id);
+      if (usuarioActual.fotoPerfil) {
+        const oldPath = path.join(__dirname, '../..', usuarioActual.fotoPerfil);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+      actualizaciones.fotoPerfil = `/uploads/perfiles/${req.file.filename}`;
+    } else if (req.body.fotoPerfil === '') {
+      const usuarioActual = await Usuario.findById(req.user.id);
+      if (usuarioActual.fotoPerfil) {
+        const oldPath = path.join(__dirname, '../..', usuarioActual.fotoPerfil);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+      actualizaciones.fotoPerfil = null;
+    }
+
     const usuario = await Usuario.findByIdAndUpdate(req.user.id, actualizaciones, { new: true }).select('-password');
     res.json(usuario);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ mensaje: 'Error al actualizar perfil' });
   }
 };
@@ -243,5 +260,22 @@ exports.obtenerPerfilPublico = async (req, res) => {
     res.json(usuario);
   } catch (error) {
     res.status(500).json({ mensaje: 'Error al obtener perfil' });
+  }
+};
+
+exports.eliminarImagenPerfil = async (req, res) => {
+  try {
+    const usuario = await Usuario.findById(req.user.id);
+    if (usuario.fotoPerfil) {
+      const imagePath = path.join(__dirname, '../..', usuario.fotoPerfil);
+      if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+      usuario.fotoPerfil = null;
+      await usuario.save();
+      res.json({ mensaje: 'Imagen de perfil eliminada' });
+    } else {
+      res.status(404).json({ mensaje: 'No hay imagen de perfil' });
+    }
+  } catch (error) {
+    res.status(500).json({ mensaje: 'Error al eliminar imagen' });
   }
 };

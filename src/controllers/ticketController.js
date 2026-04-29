@@ -39,13 +39,28 @@ exports.crearTicket = async (req, res) => {
     // Generar código único
     const codigoUnico = generarCodigoUnico();
 
-    // Generar QR en base64 con información relevante
+    
+    // Obtener datos relevantes del evento
+    const eventoNombre = evento.nombre;
+    const fechaEvento = evento.fecha.toISOString();
+    const precio = evento.precio || 0;
+    const moneda = evento.moneda || 'USD';
+    const esGratuito = precio === 0;
+
+    // Datos a incluir en el QR (JSON string)
     const qrData = JSON.stringify({
       ticketId: codigoUnico,
-      evento: evento.nombre,
-      usuario: req.user.email,
-      fecha: new Date()
+      eventoId: evento._id.toString(),
+      eventoNombre,
+      fecha: fechaEvento,
+      precio,
+      moneda,
+      esGratuito,
+      usuarioEmail: req.user.email,
+      fechaGeneracion: new Date().toISOString()
     });
+ 
+
     const qrCode = await QRCode.toDataURL(qrData);
 
     // Crear ticket
@@ -101,13 +116,32 @@ exports.verificarTicket = async (req, res) => {
       return res.status(404).json({ mensaje: 'Ticket no válido' });
     }
 
-    // Aquí podrías cambiar estado a 'usado' si se verifica en puerta
-    res.json(ticket);
+    // Se puede devolver información adicional para el escáner
+    res.json({
+      ticket: {
+        id: ticket._id,
+        codigoUnico: ticket.codigoUnico,
+        estado: ticket.estado,
+        fechaCompra: ticket.fechaCompra
+      },
+      evento: {
+        id: ticket.evento._id,
+        nombre: ticket.evento.nombre,
+        fecha: ticket.evento.fecha,
+        precio: ticket.evento.precio,
+        moneda: ticket.evento.moneda,
+        aforo: ticket.evento.aforo,
+        ubicacion: ticket.evento.ubicacion
+      },
+      usuario: ticket.usuario
+    });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ mensaje: 'Error al verificar ticket' });
   }
 };
 
+// Validar ticket (marcar como usado) - organizador/admin
 exports.validarTicket = async (req, res) => {
   try {
     const ticketId = req.params.id;
